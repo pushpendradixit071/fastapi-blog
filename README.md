@@ -1,6 +1,6 @@
-# FastAPI Blog
+# Postify
 
-A blog application built while learning FastAPI and backend development.
+A blog application built with FastAPI and Python.
 
 ## Status
 
