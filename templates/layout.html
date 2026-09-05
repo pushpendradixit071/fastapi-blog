@@ -85,10 +85,9 @@
                                         type="button"
                                         data-bs-toggle="modal"
                                         data-bs-target="#createPostModal">New Post</button>
-                                <span id="usernameDisplay" class="navbar-text me-md-2"></span>
-                                <button class="btn btn-outline-light mb-2 mb-md-0 me-md-3"
-                                        type="button"
-                                        id="logoutBtn">Logout</button>
+                                <a class="btn btn-light mb-2 mb-md-0 me-md-3"
+                                   href="{{ url_for("account_page") }}"
+                                   id="accountBtn">Account</a>
                             </div>
                             <!-- Shown when logged out -->
                             <div id="loggedOutNav">
@@ -268,99 +267,108 @@
 
         <!-- Auth State Management -->
         <script type="module">
-        import { getCurrentUser, logout } from '/static/js/auth.js';
+            import { getCurrentUser } from '/static/js/auth.js';
 
-        // Update navbar based on auth state
-        async function updateAuthUI() {
-            const user = await getCurrentUser();
-            const loggedInNav = document.getElementById('loggedInNav');
-            const loggedOutNav = document.getElementById('loggedOutNav');
+            async function updateAuthUI() {
+                const user = await getCurrentUser();
+                const loggedInNav = document.getElementById('loggedInNav');
+                const loggedOutNav = document.getElementById('loggedOutNav');
+                const accountBtn = document.getElementById('accountBtn');
 
-            if (user) {
-            loggedInNav.classList.remove('d-none');
-            loggedInNav.classList.add('d-flex');
-            loggedOutNav.classList.add('d-none');
-            document.getElementById('usernameDisplay').textContent = user.email;
-            } else {
-            loggedInNav.classList.add('d-none');
-            loggedInNav.classList.remove('d-flex');
-            loggedOutNav.classList.remove('d-none');
+                if (user) {
+                    loggedInNav.classList.remove('d-none');
+                    loggedInNav.classList.add('d-flex');
+                    loggedOutNav.classList.add('d-none');
+                    accountBtn.textContent = user.username;
+                } else {
+                    loggedInNav.classList.add('d-none');
+                    loggedInNav.classList.remove('d-flex');
+                    loggedOutNav.classList.remove('d-none');
+                    accountBtn.textContent = 'Account';
+                }
             }
-        }
 
-        // Logout handler
-        document.getElementById('logoutBtn').addEventListener('click', logout);
-
-        // Update UI on page load
-        updateAuthUI();
+            updateAuthUI();
         </script>
         
         <!-- Create Post Form Handler -->
         <script type="module">
-    import {
-    getErrorMessage,
-    hideModal,
-    showModal,
-    } from "/static/js/utils.js";
+            import {
+            getErrorMessage,
+            hideModal,
+            showModal,
+            } from "/static/js/utils.js";
+            import { getToken } from '/static/js/auth.js';
 
-    const createForm = document.getElementById("createPostForm");
+            const createForm = document.getElementById("createPostForm");
 
-    createForm.addEventListener("submit", async (event) => {
-    // Stop default form submission - we'll handle it with JavaScript
-    event.preventDefault();
+            createForm.addEventListener("submit", async (event) => {
+            // Stop default form submission - we'll handle it with JavaScript
+            event.preventDefault();
 
-    // Gather form values into a plain object {title: "...", content: "..."}
-    const formData = new FormData(createForm);
-    const postData = Object.fromEntries(formData.entries());
+            const token = getToken();
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
 
-    // TEMPORARY - hardcoded until authorization (Tutorial 11)
-    postData.user_id = 1;
+            // Gather form values into a plain object {title: "...", content: "..."}
+            const formData = new FormData(createForm);
+            const postData = Object.fromEntries(formData.entries());
 
-    try {
-        // POST to our API as JSON
-        const response = await fetch("/api/posts", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(postData),
-        });
+            
 
-        if (response.ok) {
-        const data = await response.json();
-        document.getElementById("successMessage").textContent =
-            `Post "${data.title}" created successfully!`;
+            try {
+                // POST to our API as JSON
+                const response = await fetch("/api/posts", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify(postData),
+                });
 
-        hideModal("createPostModal");
-        showModal("successModal");
+                if (response.status === 401) {
+                    window.location.href = '/login';
+                    return;
+                }
 
-        // Clear form
-        createForm.reset();
+                if (response.ok) {
+                const data = await response.json();
+                document.getElementById("successMessage").textContent =
+                    `Post "${data.title}" created successfully!`;
 
-        // Reload page after modal is hidden to show new post
-        document
-            .getElementById("successModal")
-            .addEventListener(
-            "hidden.bs.modal",
-            () => {
-                window.location.reload();
-            },
-            { once: true },
-            );
-        } else {
-        const error = await response.json();
-        document.getElementById("errorMessage").textContent =
-            getErrorMessage(error);
+                hideModal("createPostModal");
+                showModal("successModal");
 
-        hideModal("createPostModal");
-        showModal("errorModal");
-        }
-    } catch (error) {
-        document.getElementById("errorMessage").textContent =
-        "Network error. Please check your connection and try again.";
-        showModal("errorModal");
-    }
-    });
+                // Clear form
+                createForm.reset();
+
+                // Reload page after modal is hidden to show new post
+                document
+                    .getElementById("successModal")
+                    .addEventListener(
+                    "hidden.bs.modal",
+                    () => {
+                        window.location.reload();
+                    },
+                    { once: true },
+                    );
+                } else {
+                const error = await response.json();
+                document.getElementById("errorMessage").textContent =
+                    getErrorMessage(error);
+
+                hideModal("createPostModal");
+                showModal("errorModal");
+                }
+            } catch (error) {
+                document.getElementById("errorMessage").textContent =
+                "Network error. Please check your connection and try again.";
+                showModal("errorModal");
+            }
+            });
         </script>
         {% block scripts %}
         {% endblock scripts %}
